@@ -1,0 +1,27 @@
+# pip install -r requirements.txt
+#
+# Lower bounds, not pins: these are the versions this was built and measured
+# against. The models themselves are not here — Ollama is installed separately
+# (see README), and sentence-transformers downloads the embedder and the NLI
+# cross-encoder named in backend/config.py on first use.
+
+# --- backend ---
+fastapi>=0.110
+uvicorn>=0.28
+python-multipart>=0.0.20     # UploadFile on POST /stt; FastAPI won't parse forms without it
+httpx>=0.27                  # streaming client for Ollama
+
+# --- retrieval ---
+faiss-cpu>=1.9
+sentence-transformers>=5.5   # embedder (bge-small) + CrossEncoder (NLI verifier)
+numpy>=1.26,<2               # faiss-cpu 1.9 is built against the 1.x ABI
+
+# --- speech in ---
+faster-whisper>=1.2          # decodes browser webm via PyAV, so no ffmpeg needed
+
+# --- data pipeline (scripts/01..03) ---
+pymupdf>=1.25                # the Gita PDF; `import fitz`
+
+# --- checks ---
+pytest>=7.4
+websockets>=12               # scripts/smoke_chat.py only
