@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<!--
+  Shastra Samvad — kiosk build.
+
+  A standalone, dependency-free replica of app/page.jsx's core loop, for an
+  embedded device with no Node.js dev server: a touchscreen wired to a
+  Chromium instance launched with --kiosk, pointed at this file directly
+  (file:///.../frontend/kiosk.html) or served as a static file. No React, no
+  build step, no CDN — everything the page needs is inlined below.
+
+  This is NOT a replacement for the Next.js app; that stays the dev/demo
+  frontend. This file exists only for the fullscreen, mouse-and-keyboard-free
+  deployment target.
+
+  Config: change BACKEND_HTTP below if the backend is not on localhost:8000
+  (e.g. reached over LAN from a separate kiosk box).
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Shastra Samvad — Kiosk</title>
+<style>
+  :root {
+    --bg: #14110e;
+    --panel: #1e1a16;
+    --line: #322b24;
+    --ink: #ece5da;
+    --dim: #9d9184;
+    --gold: #d4a24c;
+    --guru: #f3e9d8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    background: var(--bg); color: var(--ink);
+    font: 22px/1.6 Georgia, "Iowan Old Style", serif;
+    width: 100vw; height: 100vh; overflow: hidden; /* kiosk: no scroll chrome */
+    user-select: none;
+  }
+  .app { display: grid; grid-template-rows: auto 1fr auto auto; height: 100vh; }
+
+  header {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 18px 26px; border-bottom: 1px solid var(--line);
+  }
+  h1 { font-size: 24px; letter-spacing: .04em; font-weight: 500; margin-right: auto; }
+  h1 small { color: var(--dim); font-size: 13px; letter-spacing: .12em; display: block; }
+
+  select {
+    font: inherit; font-size: 18px; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+    min-height: 52px;
+  }
+
+  .body { display: grid; grid-template-columns: 1fr 360px; min-height: 0; }
+  @media (max-width: 900px) { .body { grid-template-columns: 1fr; } aside { display: none; } }
+
+  .log { overflow-y: auto; padding: 26px; display: flex; flex-direction: column; gap: 22px; }
+  .turn { max-width: 100%; }
+  .turn.student { align-self: flex-end; text-align: right; color: var(--dim); font-style: italic; }
+  .turn.guru { color: var(--guru); font-size: 24px; }
+  .turn .who { font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; font-family: system-ui, sans-serif; }
+  .badge {
+    display: inline-block; font-family: system-ui, sans-serif; font-size: 12px;
+    letter-spacing: .14em; padding: 3px 10px; border-radius: 999px;
+    border: 1px solid var(--gold); color: var(--gold); margin-left: 8px;
+  }
+  .withheld {
+    font-family: system-ui, sans-serif; font-size: 14px; color: #b98d8d;
+    border-left: 3px solid #6d3b3b; padding: 5px 0 5px 12px; margin-top: 8px;
+  }
+  .dim-dots { color: var(--dim); }
+
+  aside { background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; padding: 20px; }
+  aside h2 { font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); font-weight: 500; margin-bottom: 16px; font-family: system-ui, sans-serif; }
+  .verse { border-left: 3px solid var(--line); padding: 3px 0 3px 12px; margin-bottom: 18px; font-size: 15px; }
+  .verse.cited { border-left-color: var(--gold); }
+  .verse .ref { font-family: system-ui, sans-serif; font-size: 12px; letter-spacing: .06em; color: var(--gold); display: block; margin-bottom: 4px; }
+  .verse p { color: var(--dim); }
+  .verse.cited p { color: var(--ink); }
+  .none-yet { color: var(--dim); font-size: 15px; font-family: system-ui, sans-serif; }
+
+  .status { font-family: system-ui, sans-serif; font-size: 14px; color: var(--dim); padding: 0 26px 12px; }
+
+  .composer { display: flex; gap: 12px; padding: 18px 26px; border-top: 1px solid var(--line); }
+  .composer input {
+    flex: 1; font: inherit; font-size: 20px; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; min-height: 60px;
+  }
+  /* Touch-friendly: every button is a big, thumb-sized target. */
+  button {
+    font: inherit; font-size: 18px; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px 22px; min-height: 60px; min-width: 96px;
+    cursor: pointer;
+  }
+  button:active:not(:disabled) { border-color: var(--gold); }
+  button:disabled { opacity: .4; cursor: default; }
+  button.rec { background: #5c2020; border-color: #8d3131; }
+  button.interrupt { background: #402a14; border-color: var(--gold); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Shastra Samvad<small>OFFLINE · GURU–SHISHYA · KIOSK</small></h1>
+    <select id="sourceSel"></select>
+    <select id="chapterSel"></select>
+    <select id="modeSel">
+      <option>AUTO</option><option>TEACH</option><option>DOUBT</option>
+      <option>DEBATE</option><option>COUNSEL</option>
+    </select>
+  </header>
+
+  <div class="body">
+    <div class="log" id="log"></div>
+    <aside>
+      <h2>Verses consulted</h2>
+      <div id="verses"><p class="none-yet">none yet</p></div>
+    </aside>
+  </div>
+
+  <div class="status" id="status">connecting…</div>
+
+  <div class="composer">
+    <button id="recBtn">🎙 speak</button>
+    <input id="input" placeholder="Ask the Guru…" autocomplete="off">
+    <button id="askBtn">ask</button>
+    <button class="interrupt" id="interruptBtn" disabled>interrupt</button>
+  </div>
+</div>
+
+<script>
+// --- config -----------------------------------------------------------
+const BACKEND_HTTP = "http://localhost:8000";
+const BACKEND_WS = BACKEND_HTTP.replace(/^http/, "ws") + "/chat";
+const MAX_VERSE_CHARS = 230;
+
+// --- state --------------------------------------------------------------
+let texts = [];
+let source = "Gita";
+let chapter = "";
+let mode = "AUTO";
+let turns = [];       // {who, text, mode, withheld: []}
+let cited = [];
+let busy = false;
+let audible = false;
+let recording = false;
+let ws = null;
+let wsAttempt = 0;
+
+const el = {
+  log: document.getElementById("log"),
+  verses: document.getElementById("verses"),
+  status: document.getElementById("status"),
+  input: document.getElementById("input"),
+  askBtn: document.getElementById("askBtn"),
+  recBtn: document.getElementById("recBtn"),
+  interruptBtn: document.getElementById("interruptBtn"),
+  sourceSel: document.getElementById("sourceSel"),
+  chapterSel: document.getElementById("chapterSel"),
+  modeSel: document.getElementById("modeSel"),
+};
+
+function setStatus(s) { el.status.textContent = s; }
+
+// --- fetch chapter/parva picker data ------------------------------------
+fetch(`${BACKEND_HTTP}/texts`)
+  .then((r) => r.json())
+  .then((t) => { texts = t; renderSourceOptions(); renderChapterOptions(); })
+  .catch(() => {});
+
+function renderSourceOptions() {
+  const sources = texts.length ? texts.map((t) => t.source) : ["Gita"];
+  el.sourceSel.innerHTML = sources.map((s) => `<option${s === source ? " selected" : ""}>${s}</option>`).join("");
+}
+function renderChapterOptions() {
+  const chapters = (texts.find((t) => t.source === source) || {}).chapters || [];
+  const label = source === "Gita" ? "any chapter" : "any parva";
+  const opt = (c) => `<option value="${c}">${source === "Gita" ? "Chapter " + c : c + " Parva"}</option>`;
+  el.chapterSel.innerHTML = `<option value="">${label}</option>` + chapters.map(opt).join("");
+}
+el.sourceSel.addEventListener("change", () => {
+  source = el.sourceSel.value;
+  chapter = ""; // chapter 2 is not a parva, and vice versa
+  renderChapterOptions();
+});
+el.chapterSel.addEventListener("change", () => { chapter = el.chapterSel.value; });
+el.modeSel.addEventListener("change", () => { mode = el.modeSel.value; });
+
+// --- websocket, with the same reconnect-on-its-own behaviour as page.jsx ---
+function connect() {
+  const sock = new WebSocket(BACKEND_WS);
+  ws = sock;
+  sock.onopen = () => { wsAttempt = 0; setStatus("ready"); };
+  sock.onmessage = (e) => handle(JSON.parse(e.data));
+  sock.onclose = () => {
+    busy = false;
+    render();
+    const wait = Math.min(1000 * 2 ** wsAttempt++, 10000);
+    setStatus(`disconnected — reconnecting in ${Math.round(wait / 1000)}s…`);
+    setTimeout(connect, wait);
+  };
+  sock.onerror = () => sock.close(); // onerror always precedes onclose
+}
+connect();
+
+function handle(msg) {
+  switch (msg.type) {
+    case "mode":
+      setStatus(`${msg.mode.toLowerCase()} — consulting the texts…`);
+      turns.push({ who: "guru", mode: msg.mode, text: "", withheld: [] });
+      render();
+      break;
+    case "verses":
+      renderVerses(msg.items);
+      cited = [];
+      break;
+    case "sentence": {
+      setStatus("speaking…");
+      const g = lastGuru();
+      if (g) g.text = `${g.text} ${msg.text}`.trim();
+      if (msg.cited_ids && msg.cited_ids.length) {
+        cited = [...new Set([...cited, ...msg.cited_ids])];
+        reflagCitedVerses();
+      }
+      render();
+      speak(msg.text, msg.audio_url);
+      break;
+    }
+    case "withheld": {
+      // The verifier blocked this sentence. Showing it (greyed, not spoken)
+      // is what makes the guardrail visible in a demo.
+      const g = lastGuru();
+      if (g) g.withheld.push(msg);
+      render();
+      break;
+    }
+    case "citations":
+      cited = msg.ids;
+      reflagCitedVerses();
+      break;
+    case "done":
+      busy = false;
+      setStatus("ready");
+      updateComposer();
+      break;
+    case "interrupted":
+      busy = false;
+      setStatus("interrupted — go ahead");
+      updateComposer();
+      break;
+  }
+}
+
+function lastGuru() {
+  for (let i = turns.length - 1; i >= 0; i--) if (turns[i].who === "guru") return turns[i];
+  return null;
+}
+
+// --- rendering (no framework: rebuild the log + verse panel on change) ----
+function render() {
+  el.log.innerHTML = turns.map((t) => {
+    if (t.who === "student") {
+      return `<div class="turn student"><div class="who">You</div>${escapeHtml(t.text)}</div>`;
+    }
+    const badge = t.mode ? `<span class="badge">${t.mode}</span>` : "";
+    const body = t.text ? escapeHtml(t.text) : `<span class="dim-dots">…</span>`;
+    const withheld = t.withheld.map((w) =>
+      `<div class="withheld">withheld — ${escapeHtml(w.reason)}: "${escapeHtml(w.text)}"</div>`
+    ).join("");
+    return `<div class="turn guru"><div class="who">Guru${badge}</div>${body}${withheld}</div>`;
+  }).join("");
+  el.log.scrollTop = el.log.scrollHeight;
+  updateComposer();
+}
+
+let currentVerses = [];
+function renderVerses(items) {
+  currentVerses = items || [];
+  paintVerses();
+}
+function reflagCitedVerses() { paintVerses(); }
+function paintVerses() {
+  if (!currentVerses.length) {
+    el.verses.innerHTML = `<p class="none-yet">none yet</p>`;
+    return;
+  }
+  el.verses.innerHTML = currentVerses.map((v) => {
+    const isCited = cited.includes(v.verse_id);
+    const text = v.text.length > MAX_VERSE_CHARS ? v.text.slice(0, MAX_VERSE_CHARS) + "…" : v.text;
+    const illustrates = v.illustrates ? " · illustration" : "";
+    return `<div class="verse${isCited ? " cited" : ""}">
+      <span class="ref">${escapeHtml(v.verse_id)}${illustrates}</span>
+      <p>${escapeHtml(text)}</p>
+    </div>`;
+  }).join("");
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+function updateComposer() {
+  el.askBtn.disabled = busy || !el.input.value.trim();
+  el.interruptBtn.disabled = !busy && !audible;
+}
+
+// --- speech out: same queue-not-fire-and-forget logic as page.jsx ---------
+// Sentences must be played one after another, not the moment each arrives.
+// Piper synthesizes faster than real time, so sentence 2's audio can land
+// while sentence 1 is still playing; an <audio> element does not queue on
+// its own the way speechSynthesis does, so the queue lives here.
+const audioQueue = [];
+let currentAudio = null;
+
+function setAudible(on) { audible = on; updateComposer(); }
+
+function playNext() {
+  const url = audioQueue.shift();
+  if (!url) { currentAudio = null; setAudible(false); return; }
+  const a = new Audio(url);
+  currentAudio = a;
+  const advance = () => { if (currentAudio === a) playNext(); };
+  a.onended = advance;
+  a.onerror = advance; // a clip that failed to synthesize must not stall the rest
+  a.play().catch(advance);
+}
+
+function speak(text, audioUrl) {
+  setAudible(true);
+  if (audioUrl) {
+    audioQueue.push(`${BACKEND_HTTP}${audioUrl}`);
+    if (!currentAudio) playNext();
+    return;
+  }
+  if (typeof speechSynthesis === "undefined") return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 0.95;
+  u.onend = () => { if (!speechSynthesis.pending) setAudible(false); };
+  speechSynthesis.speak(u); // the browser queues these for us
+}
+
+function stopSpeaking() {
+  if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel();
+  audioQueue.length = 0;
+  currentAudio?.pause();
+  currentAudio = null; // the identity guard in playNext reads this
+  setAudible(false);
+}
+
+function interrupt() {
+  stopSpeaking();
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "interrupt" }));
+}
+el.interruptBtn.addEventListener("click", interrupt);
+
+// --- barge-in: RMS mic-loudness watch, same threshold as page.jsx ---------
+(async function initBargeIn() {
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    return; // no mic permission: typing/touch still works, barge-in just won't
+  }
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 512;
+  ctx.createMediaStreamSource(stream).connect(analyser);
+  const buf = new Uint8Array(analyser.fftSize);
+  let loud = 0;
+  (function tick() {
+    analyser.getByteTimeDomainData(buf);
+    let sum = 0;
+    for (const v of buf) sum += (v - 128) ** 2;
+    const rms = Math.sqrt(sum / buf.length) / 128;
+    loud = rms > 0.08 ? loud + 1 : 0;
+    if (loud > 12 && audible) { loud = 0; interrupt(); }
+    requestAnimationFrame(tick);
+  })();
+})();
+
+// --- speech in: push-to-talk via MediaRecorder, posts to /stt -------------
+let recorder = null;
+el.recBtn.addEventListener("click", async () => {
+  if (recording) { recorder?.stop(); recording = false; el.recBtn.textContent = "🎙 speak"; return; }
+  stopSpeaking();
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const rec = new MediaRecorder(stream);
+  const parts = [];
+  rec.ondataavailable = (e) => parts.push(e.data);
+  rec.onstop = async () => {
+    stream.getTracks().forEach((t) => t.stop());
+    setStatus("transcribing…");
+    const form = new FormData();
+    form.append("audio", new Blob(parts, { type: "audio/webm" }), "turn.webm");
+    const r = await fetch(`${BACKEND_HTTP}/stt`, { method: "POST", body: form });
+    const { text } = await r.json();
+    setStatus("ready");
+    if (text && text.trim()) ask(text.trim());
+  };
+  recorder = rec;
+  rec.start();
+  recording = true;
+  el.recBtn.textContent = "◼ stop";
+  el.recBtn.classList.add("rec");
+});
+
+// --- send -------------------------------------------------------------
+function ask(text) {
+  if (!text.trim() || !ws || ws.readyState !== WebSocket.OPEN) return;
+  stopSpeaking();
+  turns.push({ who: "student", text });
+  busy = true;
+  setStatus("thinking…");
+  ws.send(JSON.stringify({
+    // Raw, not Number(): a Gita chapter is "2" but a Mahabharata parva is
+    // "Udyoga", and Number("Udyoga") is NaN, which JSON.stringify writes as
+    // null — the backend normalizes a numeric string back to a number.
+    type: "ask",
+    text,
+    source,
+    chapter: chapter || null,
+    mode,
+  }));
+  el.input.value = "";
+  render();
+}
+el.askBtn.addEventListener("click", () => ask(el.input.value));
+el.input.addEventListener("keydown", (e) => { if (e.key === "Enter") ask(el.input.value); });
+el.input.addEventListener("input", updateComposer);
+
+render();
+</script>
+</body>
+</html>
