@@ -37,6 +37,13 @@ LLM_GPU_LAYERS = 0
 LLM_CONTEXT_SIZE = 2048
 WHISPER_MODEL = "base"          # base.en on device
 WHISPER_COMPUTE = "int8"        # CPU
+# faster-whisper is the dev/demo path (pip install, no separate build step).
+# whisper.cpp base.en on CPU is the architecture doc's actual STT engine for
+# the device — a plain C++ binary with no Python ML stack to cross-compile for
+# Jetson Nano or RK3588. STT_USE_WHISPER_CPP switches stt.py to it; False
+# keeps faster-whisper unchanged for laptop development.
+STT_USE_WHISPER_CPP = False
+WHISPER_CPP_MODEL_PATH = ROOT / "models" / "ggml-base.en.bin"
 # Entailment stage behind the cosine gate — see the citation verifier block
 # below for why this exists and what it is allowed to reject. ~70ms per pair.
 #
