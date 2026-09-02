@@ -75,7 +75,7 @@ CROSSREF_MIN_SCORE = 0.80
 
 # --- generation ---
 MAX_TOKENS = 400                # answer-length cap (arch doc 4.6); real turns use 110-220
-TEMPERATURE = 0.4
+TEMPERATURE = 0.3
 
 # --- citation verifier ("no verse, no answer") ---
 # Thresholds measured, not guessed (bge-small floors around 0.45 even for
