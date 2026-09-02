@@ -89,7 +89,7 @@ TEMPERATURE = 0.3
 # near-verbatim on some retrieved verse. Withholding is the safe failure.
 #
 CITED_MIN_SIM = 0.60            # sentence vs the verse it cited
-CITATION_MIN_SIM = 0.70         # uncited assertion vs any retrieved verse
+CITATION_MIN_SIM = 0.65         # uncited assertion vs any retrieved verse
 
 # Cosine cannot catch a sentence that NEGATES the verse it cites: measured 0.777
 # for the negation against 0.840 for the faithful version, because cosine scores
