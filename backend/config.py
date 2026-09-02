@@ -50,7 +50,7 @@ TOP_K = 6
 # paraphrases of narrative verses score 0.61-0.71 against the RIGHT verse, which
 # clears CITED_MIN_SIM but not the stricter uncited floor. So the sentence has
 # to carry an anchor, and the anchor is only reliable when there is one to pick.
-TEACH_WINDOW = 1                # verses per teaching turn
+TEACH_WINDOW = 2                # verses per teaching turn
 # Debate gets more than TOP_K, not less. It used to get TOP_K // 2 per side and,
 # after dedup, argued from 3 verses where COUNSEL had 6 — so the model reached
 # into memory for the rest and the verifier withheld the entire turn. This is
