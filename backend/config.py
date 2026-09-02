@@ -66,6 +66,13 @@ VAD_MIN_SILENCE_MS = 700        # silence this long after speech = end of turn
 #   nli-distilroberta-base    +0.082
 #   nli-deberta-v3-xsmall     +0.027
 NLI_MODEL = "cross-encoder/nli-deberta-v3-small"
+# Keeps NLI_MODEL's ~400MB resident between turns by default — the same
+# tradeoff LLM_KEEP_ALIVE makes for the LLM, just smaller stakes here since
+# 400MB matters far more on a 4GB board than a laptop. True unloads it after
+# each check() pass and reloads on the next verified sentence: ~200ms paid
+# per NLI call instead of per idle gap, in exchange for 400MB freed the rest
+# of the time. See EMBEDDED_MODE below for where this is meant to flip on.
+NLI_MODEL_LAZY = False
 
 # --- retrieval ---
 TOP_K = 6
@@ -155,3 +162,50 @@ PIPER_VOICE = ROOT / "piper" / "en_US-lessac-medium.onnx"
 PORT = 8000
 CORS_ORIGINS = ["http://localhost:3001", "http://127.0.0.1:3001",
                 "http://localhost:3000", "http://127.0.0.1:3000"]
+
+# --- embedded deployment ---
+# Target boards: Jetson Nano (4GB) and RK3588 (4-8GB). Both run every model
+# in this file's --- models --- section at once, for the whole life of the
+# process — there is no request-scoped loading on a kiosk with one user.
+#
+# Quantization: LLM_MODEL_PATH expects a Q4_K_M GGUF (~2.0GB for phi4-mini's
+# ~3.8B params) — the standard "fits in 4GB with room for everything else"
+# quant, not the smaller Q4_0/Q3 variants, which measurably degrade citation
+# accuracy on a model this size already picked for being small. Pull it with
+# llama.cpp's own convert+quantize tooling, or a pre-quantized GGUF from
+# Hugging Face (search "phi-4-mini gguf Q4_K_M") — same file either way,
+# config.py only cares that LLM_MODEL_PATH points at it.
+#
+# Resident memory, everything loaded simultaneously:
+#   LLM (phi4-mini, Q4_K_M GGUF)         ~2.0 GB
+#   Embedder (bge-small)                 ~130 MB
+#   NLI (deberta-v3-small)               ~400 MB   (0 once idle, if NLI_MODEL_LAZY)
+#   Whisper (base.en)                    ~150 MB
+#   Piper TTS                            ~60 MB
+#   FAISS index + corpus                 ~50 MB
+#   --------------------------------------------
+#   Total                                ~2.8 GB   -> ~1.2 GB left for OS/buffers on 4GB
+#
+# Jetson Nano: LLM_GPU_LAYERS > 0 offloads that many transformer layers to the
+# Nano's 128-core Maxwell GPU via CUDA, trading GPU VRAM (shared with system
+# RAM on this board, so it still counts against the 4GB above) for tokens/sec
+# — 0 is the safe CPU-only default until that tradeoff is measured on-device.
+#
+# RK3588: none of the llama.cpp machinery above runs at all. Its NPU is
+# driven by rkllm, which takes its own converted .rkllm model file, not a
+# GGUF — llm.py's LLM_USE_OLLAMA=False path (llama.cpp) is the Jetson Nano /
+# generic-Linux answer; an RK3588 build replaces that module's llama.cpp
+# branch with an rkllm-backed one instead of pointing LLM_MODEL_PATH at it.
+#
+# EMBEDDED_MODE is the one flag to set when bringing up a board: it forces
+# every individual backend flag above to its embedded value, so a deployment
+# script doesn't have to know or repeat that LLM_USE_OLLAMA, STT_USE_WHISPER_CPP
+# and VAD_USE_SILERO all need to flip together. Leave it False for laptop
+# dev — that leaves every flag it would touch at the default already set
+# above, so nothing changes.
+EMBEDDED_MODE = False
+
+if EMBEDDED_MODE:
+    LLM_USE_OLLAMA = False
+    STT_USE_WHISPER_CPP = True
+    VAD_USE_SILERO = True
