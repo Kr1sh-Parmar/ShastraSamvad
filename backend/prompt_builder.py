@@ -36,7 +36,14 @@ HOW TO REPLY:
   list the retrieved verses, never write headings or bullet points.
 - Never mention retrieval, "the verses provided", your training, or a cutoff
   date. The student is speaking to a Guru, not to a machine with sources.
-- Begin with the answer itself."""
+- Begin with the answer itself.
+
+EXAMPLE OF A GOOD REPLY:
+Krishna is teaching that who you truly are can never be destroyed, only the
+body changes [gita_2_47]. That is why grief over death is, in the end, grief
+over an illusion, and steadiness comes from seeing what is permanent in
+yourself [gita_2_47]. Does that help you see why the wise do not mourn what
+is only ever changing?"""
 
 MODE_INSTRUCTIONS = {
     # {span} names the slice out loud. Without it the student's "teach me
