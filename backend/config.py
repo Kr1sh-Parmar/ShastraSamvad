@@ -44,6 +44,15 @@ WHISPER_COMPUTE = "int8"        # CPU
 # keeps faster-whisper unchanged for laptop development.
 STT_USE_WHISPER_CPP = False
 WHISPER_CPP_MODEL_PATH = ROOT / "models" / "ggml-base.en.bin"
+# Arch doc 4.1's VAD for endpointing and barge-in. The browser build does this
+# itself (page.jsx: RMS loudness over the mic stream) since it already owns
+# the mic and a JS-side threshold is free. A kiosk build with no browser in
+# front of the mic has nothing to do that job, so the backend does it with
+# Silero VAD instead — same purpose, run where the audio actually arrives.
+VAD_USE_SILERO = False
+VAD_THRESHOLD = 0.5             # Silero speech-probability cutoff per chunk
+VAD_MIN_SPEECH_MS = 250         # below this, a blip isn't a barge-in
+VAD_MIN_SILENCE_MS = 700        # silence this long after speech = end of turn
 # Entailment stage behind the cosine gate — see the citation verifier block
 # below for why this exists and what it is allowed to reject. ~70ms per pair.
 #
