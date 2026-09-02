@@ -25,6 +25,16 @@ OLLAMA_URL = "http://localhost:11434"
 # demo questions costs a full cold load on the next one — the single largest
 # latency item in the pipeline (retrieval is 13ms, the verifier 0.2s/turn).
 LLM_KEEP_ALIVE = "30m"
+# Ollama needs a daemon; embedded boards run llm.py against llama-cpp-python
+# directly instead. True keeps the dev/demo path (Ollama) unchanged; False
+# switches to the in-process GGUF path below. Both are kept side by side so a
+# board can be brought up before the Ollama path is retired.
+LLM_USE_OLLAMA = True
+LLM_MODEL_PATH = ROOT / "models" / "phi4-mini-q4.gguf"
+# 0 = pure CPU. Jetson Nano 4GB can offload some layers to its CUDA cores by
+# raising this; RK3588 does not use this module at all (see llm.py).
+LLM_GPU_LAYERS = 0
+LLM_CONTEXT_SIZE = 2048
 WHISPER_MODEL = "base"          # base.en on device
 WHISPER_COMPUTE = "int8"        # CPU
 # Entailment stage behind the cosine gate — see the citation verifier block
