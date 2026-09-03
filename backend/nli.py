@@ -21,6 +21,16 @@ def model():
     return _model
 
 
+def unload() -> None:
+    """Release the resident model, freeing ~400MB. Called after every
+    contradicts() when config.NLI_MODEL_LAZY is set, and available for the
+    orchestrator to call directly (e.g. under memory pressure mid-session).
+    The next contradicts()/model() call simply lazy-loads it again.
+    """
+    global _model
+    _model = None
+
+
 def contradicts(premises: str | list[str], hypothesis: str) -> float:
     """-> the highest contradiction probability over (verse, sentence) pairs.
 
@@ -38,4 +48,13 @@ def contradicts(premises: str | list[str], hypothesis: str) -> float:
     idx = next(i for i, name in m.config.id2label.items()
                if name.lower().startswith("contradict"))
     scores = m.predict([(p, hypothesis) for p in premises], apply_softmax=True)
-    return max(float(row[idx]) for row in scores)
+    result = max(float(row[idx]) for row in scores)
+    # NLI_MODEL_LAZY: this ~400MB model is otherwise resident for the whole
+    # process, like embed.py's embedder. On a 4GB embedded board that matters
+    # enough to trade for latency — unloading here frees it between turns, at
+    # the cost of ~200ms to reload on the next contradicts() call. Off by
+    # default: on a laptop or server with room to spare, the tradeoff is pure
+    # loss.
+    if config.NLI_MODEL_LAZY:
+        unload()
+    return result

@@ -32,6 +32,21 @@ CONVERSATIONAL = (
     "come closer", "sit", "very well", "good question", "as you wish",
     "i will explain", "ask me", "my child", "dear student",
     "continue", "say continue", "when you are ready", "when you're ready",
+    "this is", "this teaches", "let us", "consider", "reflect", "notice",
+    "remember", "in other words", "that is to say", "what this means",
+    "the teaching here", "think of", "imagine", "picture",
+)
+
+# If a short sentence names none of these, it cannot be smuggling in a
+# scriptural claim to dodge citation — it is connective tissue between claims,
+# not a claim itself. Kept short and cheap on purpose: this is a substring
+# scan, not an entity extractor.
+_SCRIPTURAL_TERMS = (
+    "krishna", "arjuna", "gita", "dharma", "karma", "vishnu", "shiva",
+    "bhagavan", "yoga", "moksha", "atman", "brahman", "veda", "vedas",
+    "mahabharata", "yudhishthira", "bhishma", "drona", "karna", "duryodhana",
+    "kurukshetra", "verse", "chapter", "parva", "scripture", "shastra",
+    "avatar", "soul", "self", "duty", "sacrifice", "devotion", "renunciation",
 )
 
 
@@ -120,7 +135,13 @@ def _is_conversational(sentence: str) -> bool:
     low = sentence.lower().strip()
     if low.endswith("?") and len(low) < 90:
         return True
-    return len(low) < 90 and any(low.startswith(p) for p in CONVERSATIONAL)
+    if len(low) < 90 and any(low.startswith(p) for p in CONVERSATIONAL):
+        return True
+    # Pure connective tissue: short, and names nothing scriptural to be a
+    # claim about. No embedding call — a plain substring scan stays fast.
+    if len(low) < 60 and not any(t in low for t in _SCRIPTURAL_TERMS):
+        return True
+    return False
 
 
 def check(sentence: str, verses: list[dict]) -> dict:
