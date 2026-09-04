@@ -1,5 +1,6 @@
 """FastAPI orchestrator: the async loop tying the stages together (arch doc 4.10)."""
 import asyncio
+import json
 import uuid
 from collections import OrderedDict
 from contextlib import asynccontextmanager
@@ -9,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
 from . import (citation_verifier, config, crossref, dialogue_manager, embed, llm,
-               nli, prompt_builder, retriever, stt, tts)
+               nli, prompt_builder, retriever, stt, tts, vad)
 
 
 @asynccontextmanager
@@ -30,6 +31,11 @@ async def lifespan(app: FastAPI):
     # how the device is meant to be used at all.
     await asyncio.to_thread(stt.model)
     await llm.warm()
+    # Only relevant to a kiosk build (/mic below) — browser builds do their
+    # own barge-in in JS and never touch this. Skipped otherwise so a laptop
+    # dev session doesn't pay a torch.hub download for a model it never uses.
+    if config.VAD_USE_SILERO:
+        await asyncio.to_thread(vad._load_model)
     yield
 
 
@@ -54,6 +60,7 @@ async def health():
         # False until a Mahabharata corpus exists — crossref.expand then returns
         # [] on every turn, which is correct but otherwise invisible.
         "crossref": config.CROSSREF_MAP.exists(),
+        "vad": config.VAD_USE_SILERO,
     }
 
 
@@ -295,6 +302,12 @@ async def chat(ws: WebSocket):
     try:
         while True:
             msg = await ws.receive_json()
+            # Kiosk keepalive: confirms the connection is actually alive
+            # rather than a socket the OS still thinks is open. Answered
+            # before anything else so it never waits behind a turn in flight.
+            if msg.get("type") == "ping":
+                await ws.send_json({"type": "pong"})
+                continue
             # Barge-in: the user talking over the Guru cancels generation mid-flight.
             if msg.get("type") == "interrupt":
                 if turn and not turn.done():
@@ -310,3 +323,76 @@ async def chat(ws: WebSocket):
     finally:
         if turn and not turn.done():
             turn.cancel()
+
+
+@app.websocket("/mic")
+async def mic(ws: WebSocket):
+    """Server-side VAD for a kiosk with no browser doing its own RMS barge-in
+    (config.VAD_USE_SILERO — see vad.py). Binary frames are raw PCM16LE mono
+    16kHz audio, 512 samples each — vad.py's trained chunk size, not
+    negotiable per-call. Text frames are JSON control signals:
+      {"audible": true/false}  — is the Guru currently speaking client-side,
+                                  i.e. does a burst of speech now mean barge-in
+      {"reset": true}          — client is starting a fresh turn; drop
+                                  whatever audio/VAD state was accumulating
+    """
+    await ws.accept()
+    if not config.VAD_USE_SILERO:
+        # Nothing to serve: this endpoint exists to run a model the config
+        # says isn't loaded. A generic close leaves the client guessing why;
+        # 4000+ is the reserved-for-the-app range, so the client can tell
+        # "config says use RMS instead" apart from a network failure.
+        await ws.close(code=4000)
+        return
+
+    vad.reset()
+    chunks: list[bytes] = []
+    consecutive_speech = 0
+    audible = False
+
+    def _reset_turn():
+        nonlocal chunks, consecutive_speech
+        chunks = []
+        consecutive_speech = 0
+        vad.reset()
+
+    try:
+        while True:
+            frame = await ws.receive()
+            if frame["type"] == "websocket.disconnect":
+                break
+
+            raw = frame.get("bytes")
+            if raw is not None:
+                chunks.append(raw)
+                if vad.is_speech(raw):
+                    consecutive_speech += 1
+                    # Sustained, not a single chunk, the same reasoning as
+                    # page.jsx's 12-consecutive-loud-frames RMS gate: one
+                    # speech-probable 32ms chunk is noise, not a barge-in.
+                    if consecutive_speech >= 3 and audible:
+                        await ws.send_json({"type": "barge_in"})
+                        consecutive_speech = 0
+                else:
+                    consecutive_speech = 0
+
+                if vad.detect_endpoint(raw):
+                    audio = b"".join(chunks)
+                    result = await asyncio.to_thread(stt.transcribe, audio)
+                    await ws.send_json({"type": "transcription", "text": result["text"]})
+                    _reset_turn()
+                continue
+
+            text = frame.get("text")
+            if text is None:
+                continue
+            try:
+                signal = json.loads(text)
+            except ValueError:
+                continue
+            if "audible" in signal:
+                audible = bool(signal["audible"])
+            if signal.get("reset"):
+                _reset_turn()
+    except WebSocketDisconnect:
+        pass
