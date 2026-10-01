@@ -2,15 +2,8 @@
 
 Ollama (JSON-lines HTTP stream, no framework) is the dev/demo path — it needs
 a daemon, which is fine on a laptop and not available on embedded hardware.
-llama-cpp-python loads a GGUF file in-process instead, for boards with no
-Ollama install: Jetson Nano 4GB (CPU, or CUDA via LLM_GPU_LAYERS) and any
-generic Linux board.
-
-RK3588 does NOT use this module's llama.cpp path at all — its NPU is driven
-by rkllm's own Python bindings, a different runtime with a different model
-format (.rkllm, converted from the GGUF/safetensors source). A board on
-RK3588 would replace this module entirely with an rkllm-backed one behind
-the same generate()/warm()/health() contract, not add a third branch here.
+llama-cpp-python loads a GGUF file in-process instead, for the Jetson Nano
+4GB (CPU, or CUDA via LLM_GPU_LAYERS) with no Ollama install.
 """
 import asyncio
 import json

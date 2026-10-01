@@ -117,7 +117,6 @@ themselves — see `scripts/00_fetch_mahabharata.py` and
 |---|---|---|---|---|
 | Laptop (dev/demo) | Ollama (`phi4-mini`) | faster-whisper | browser RMS (client-side) | working |
 | Jetson Nano 4GB | llama-cpp-python, GGUF, `LLM_GPU_LAYERS` for CUDA offload | whisper.cpp | Silero VAD (`backend/vad.py`) | backends implemented, not yet run on real hardware |
-| RK3588 | rkllm (separate NPU runtime, `.rkllm` model format) | whisper.cpp | Silero VAD | **not implemented** — needs its own rkllm-backed module, see Limitations |
 
 Memory budget for an embedded build with every model resident at once
 (from `backend/config.py`'s `--- embedded deployment ---` section):
@@ -131,6 +130,30 @@ Memory budget for an embedded build with every model resident at once
 | Piper TTS | ~60 MB |
 | FAISS index + corpus | ~50 MB |
 | **Total** | **~2.8 GB** — leaves ~1.2 GB for OS/buffers on a 4GB board |
+
+## Hardware bill of materials
+
+The Jetson Nano 4GB is college-provided and not counted against the budget
+below. Prices are AI-approximated (India, not independently verified) —
+confirm current retail pricing before purchase.
+
+| # | Component | Choice | Approx. ₹ (India) |
+|---|-----------|--------|-------------------|
+| 1 | Fast storage | NVMe SSD 128 GB (or fast microSD, if the Nano carrier lacks M.2) | 1,500 |
+| 2 | Display | 5" capacitive touchscreen (HDMI + USB touch) | 3,500 |
+| 3 | Microphone | ReSpeaker 2-Mic HAT (array + VAD/barge-in) | 2,500 |
+| 4 | Audio output | MAX98357A I²S amp + 3 W speaker | 800 |
+| 5 | Power (portable) | 20,000 mAh USB-C PD power bank (~3–4 h runtime) | 2,000 |
+| 6 | Cooling | Heatsink + fan (Nano runs warm under LLM + CUDA load) | 800 |
+| 7 | Cables + boot microSD | USB-C PD cable, jumpers, 64 GB microSD | 1,200 |
+| 8 | Enclosure | 3D-printed or laser-cut acrylic | 1,500 |
+| | **Subtotal** | | **13,800** |
+| | Contingency | spare cells, connectors, breakage | 2,200 |
+| | **Total** | | **16,000** |
+
+Verify the power bank's output (5V/4A barrel vs USB-C PD) actually matches
+the Nano carrier board's input before relying on it — not all Nano boards
+accept PD directly.
 
 ## Project structure
 
@@ -295,10 +318,6 @@ their embedded-appropriate values in one place, at the bottom of the file.
   English translation is a feasible addition (the source data already
   carries verse-level structure); full Sanskrit speech input/output is not
   practical with the current STT/TTS models, which are English-only.
-- **RK3588 NPU integration is not implemented.** `llm.py`'s embedded path
-  covers Jetson Nano and any generic Linux board via llama-cpp-python; RK3588
-  needs a separate module built against rkllm's own Python bindings and
-  `.rkllm` model format, which nothing in this repo currently provides.
 - **The `/mic` endpoint's transcription step needs a WAV header.** It
   concatenates raw PCM16LE chunks and passes them to `stt.transcribe()`,
   which expects an encoded container (webm/ogg/wav) and decodes via PyAV —
