@@ -3,6 +3,11 @@
 One spoken turn, start to finish. Everything below runs on-device — no
 network call anywhere in the pipeline. Target hardware: Jetson Nano 4GB.
 
+> This diagram renders natively on GitHub. If your viewer doesn't render
+> Mermaid, open [`docs/architecture.html`](docs/architecture.html) instead
+> (download it and open in a browser — GitHub serves raw HTML as plain text,
+> it won't render inline on github.com).
+
 ```mermaid
 flowchart TD
     UI["Touchscreen UI<br/>text / chapter / mode"] --> DM

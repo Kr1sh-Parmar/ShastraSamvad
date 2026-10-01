@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shastra Samvad Architecture</title>
+<style>
+  :root{
+    --bg:#faf8f4; --surface:#ffffff; --border:#e4ddd0;
+    --fg:#2a241c; --fg-dim:#71675a;
+    --accent:#a6572c; --accent-soft:#f1e3d6;
+    --font-display:'Fraunces',Georgia,serif;
+    --font-body:'Source Sans 3',system-ui,sans-serif;
+    --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#1b1812; --surface:#242019; --border:#3a342a;
+      --fg:#efe9df; --fg-dim:#a89d8c;
+      --accent:#e08a52; --accent-soft:#3a2a1c;
+      color-scheme: dark;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--fg); font-family:var(--font-body); padding-inline:20px; padding-block:40px}
+  .wrap{max-width:860px; margin:0 auto; display:flex; flex-direction:column; gap:36px}
+
+  h1{font-family:var(--font-display); font-size:clamp(1.6rem,4vw,2.3rem); font-weight:600; margin:0; text-wrap:balance}
+  .subtitle{color:var(--fg-dim); font-size:.95rem; margin-top:6px; max-width:65ch}
+  .eyebrow{font-family:var(--font-mono); font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; color:var(--accent)}
+
+  section{display:flex; flex-direction:column; gap:14px}
+  h2{font-family:var(--font-display); font-size:1.15rem; font-weight:600; margin:0}
+
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; min-width:0}
+
+  .diagram{overflow-x:auto}
+  pre.mermaid{margin:0; min-width:560px}
+
+  table{width:100%; border-collapse:collapse; font-size:.88rem}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:top; min-width:0}
+  th{font-family:var(--font-mono); font-size:.7rem; letter-spacing:.06em; text-transform:uppercase; color:var(--fg-dim); font-weight:600}
+  td.mono, th.mono{font-family:var(--font-mono); font-size:.82rem}
+  .table-scroll{overflow-x:auto}
+
+  .hw-row{display:flex; flex-wrap:wrap; gap:10px}
+  .pill{font-family:var(--font-mono); font-size:.78rem; background:var(--accent-soft); color:var(--accent); border-radius:999px; padding:6px 12px; white-space:nowrap}
+
+  footer{color:var(--fg-dim); font-size:.8rem; border-top:1px solid var(--border); padding-top:16px}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <div class="eyebrow">Shastra Samvad &middot; System Architecture</div>
+    <h1>One spoken turn, start to finish</h1>
+    <p class="subtitle">Offline Guru&ndash;Shishya device. Everything below runs on-device &mdash; no network call anywhere in the pipeline. Target hardware: Jetson Nano 4GB.</p>
+  </div>
+
+  <section class="card diagram">
+    <h2>Pipeline</h2>
+    <pre class="mermaid">
+flowchart TD
+    UI["Touchscreen UI<br/>text / chapter / mode"] --> DM
+    MIC["Mic + VAD<br/>barge-in"] --> STT["STT<br/>whisper.cpp base.en"]
+    STT --> DM["Dialogue Manager<br/>state machine"]
+    DM -->|mode + query| RET["Retriever<br/>verse-anchored RAG"]
+    RET --> XREF["Cross-reference index<br/>Gita ↔ Mahabharata"]
+    RET --> PB["Prompt Builder<br/>mode template"]
+    XREF --> PB
+    DM --> PB
+    PB --> LLM["Local LLM<br/>phi4-mini, Q4"]
+    LLM --> CV["Citation Verifier<br/>no verse, no answer"]
+    CV -->|sentence stream| TTS["TTS<br/>Piper, streaming"]
+    TTS --> SPK["Speaker"]
+    CV --> UI
+    MIC -. interrupt .-> TTS
+    </pre>
+  </section>
+
+  <section>
+    <h2>Stages</h2>
+    <div class="card table-scroll">
+      <table>
+        <thead><tr><th>Stage</th><th>Does</th><th class="mono">Runs as</th></tr></thead>
+        <tbody>
+          <tr><td>STT</td><td>Speech to text, English only</td><td class="mono">faster-whisper (dev) / whisper.cpp (device)</td></tr>
+          <tr><td>Dialogue Manager</td><td>Classifies the turn &mdash; Teach / Doubt / Debate / Counsel &mdash; tracks lesson state</td><td class="mono">rule phrases + embedding similarity</td></tr>
+          <tr><td>Retriever</td><td>Top-k verses for the query, strategy varies per mode</td><td class="mono">bge-small-en-v1.5 + FAISS</td></tr>
+          <tr><td>Cross-reference</td><td>Links a Gita verse to its illustrating Mahabharata passage</td><td class="mono">precomputed cosine map, &ge;0.80</td></tr>
+          <tr><td>Prompt Builder</td><td>Assembles persona + mode instruction + verses + history</td><td class="mono">template per mode</td></tr>
+          <tr><td>LLM</td><td>Generates the answer, streaming</td><td class="mono">phi4-mini, Q4_K_M GGUF, llama.cpp</td></tr>
+          <tr><td>Citation Verifier</td><td>Withholds any sentence not grounded in a retrieved verse</td><td class="mono">cosine gate + NLI contradiction check</td></tr>
+          <tr><td>TTS</td><td>Speaks each verified sentence as it clears</td><td class="mono">Piper, streaming</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Hardware (Jetson Nano build)</h2>
+    <div class="card hw-row">
+      <span class="pill">Jetson Nano 4GB &mdash; college-provided</span>
+      <span class="pill">5" capacitive touchscreen</span>
+      <span class="pill">ReSpeaker 2-Mic HAT</span>
+      <span class="pill">MAX98357A amp + speaker</span>
+      <span class="pill">20,000 mAh USB-C PD bank</span>
+      <span class="pill">Heatsink + fan</span>
+    </div>
+  </section>
+
+  <footer>Full detail: <code class="mono">software_architecture.md</code> &middot; <code class="mono">README.md</code> &middot; <code class="mono">backend/config.py</code></footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default'
+  });
+</script>
+</body>
+</html>
