@@ -42,11 +42,12 @@ flowchart TD
 ## Hardware (Jetson Nano build)
 
 - Jetson Nano 4GB — college-provided
-- 5" capacitive touchscreen
-- ReSpeaker 2-Mic HAT
-- MAX98357A amp + speaker
-- 20,000 mAh USB-C PD bank
-- Heatsink + fan
+- 64 GB microSD UHS-I A2 (boot storage; no NVMe on the Nano B01)
+- 5" or 7" capacitive touchscreen (HDMI + USB touch)
+- Waveshare USB Audio Codec (mic in, 3.5 mm out)
+- 3 W self-powered speaker (or passive speaker + PAM8403 amp)
+- 20,000 mAh power bank, 5V/4A, into the barrel jack (J48 jumper fitted)
+- Heatsink + 40 mm 5V PWM fan on J15
 
 Full detail: [`software_architecture.md`](software_architecture.md) ·
 [`README.md`](README.md) · [`backend/config.py`](backend/config.py)

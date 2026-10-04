@@ -139,21 +139,29 @@ confirm current retail pricing before purchase.
 
 | # | Component | Choice | Approx. ₹ (India) |
 |---|-----------|--------|-------------------|
-| 1 | Fast storage | NVMe SSD 128 GB (or fast microSD, if the Nano carrier lacks M.2) | 1,500 |
-| 2 | Display | 5" capacitive touchscreen (HDMI + USB touch) | 3,500 |
-| 3 | Microphone | ReSpeaker 2-Mic HAT (array + VAD/barge-in) | 2,500 |
-| 4 | Audio output | MAX98357A I²S amp + 3 W speaker | 800 |
-| 5 | Power (portable) | 20,000 mAh USB-C PD power bank (~3–4 h runtime) | 2,000 |
-| 6 | Cooling | Heatsink + fan (Nano runs warm under LLM + CUDA load) | 800 |
-| 7 | Cables + boot microSD | USB-C PD cable, jumpers, 64 GB microSD | 1,200 |
-| 8 | Enclosure | 3D-printed or laser-cut acrylic | 1,500 |
-| | **Subtotal** | | **13,800** |
-| | Contingency | spare cells, connectors, breakage | 2,200 |
-| | **Total** | | **16,000** |
+| 1 | Boot storage | 64 GB microSD UHS-I A2 (the Nano B01 has no M.2 storage slot, so no NVMe) | 800 |
+| 2 | Display | 5" or 7" capacitive touchscreen (HDMI + USB touch; uses 1 HDMI + 1 USB-A) | 3,500 (5") |
+| 3 | Microphone + audio codec | Waveshare USB Audio Codec (driver-free, tested on Jetson Nano) or a USB condenser mic | 1,500 |
+| 4 | Audio output | 3 W self-powered speaker via the codec's 3.5 mm out, or a passive speaker behind a PAM8403 amp board | 600 |
+| 5 | Power (portable) | 20,000 mAh power bank with 5V/4A output + USB-A to 5.5 mm barrel cable (or a bank with a 5V DC barrel output), plus a 5V/4A wall adapter as backup | 3,000 |
+| 6 | Cooling | Heatsink + 40 mm 5V PWM fan on the J15 header (required: the Nano throttles under LLM load without it) | 800 |
+| 7 | Cables | 30 cm HDMI, USB-A to micro-USB (touch), USB-A to barrel (power), J48 jumper | 700 |
+| 8 | Enclosure | 3D-printed or laser-cut acrylic: fan vents, barrel jack cutout, HDMI + 2x USB routing, mic slot, speaker grille | 1,500 |
+| | **Subtotal** | | **12,400** |
+| | Contingency | connectors, breakage | 2,200 |
+| | **Total** | | **14,600** |
 
-Verify the power bank's output (5V/4A barrel vs USB-C PD) actually matches
-the Nano carrier board's input before relying on it — not all Nano boards
-accept PD directly.
+Power and ports:
+
+- The Nano has no USB-C, so USB-C PD banks do not work. Power comes in
+  through the 5.5 mm barrel jack, which needs the **J48 jumper** fitted to
+  enable it.
+- Peak draw is about 12–14 W (board ~10 W, peripherals ~3 W); a 5V/4A
+  supply gives 20 W of headroom.
+- The Nano B01's four USB 3.0 Type-A ports: 1 touchscreen, 2 USB audio
+  codec, 3 and 4 free (WiFi dongle for setup, or future use).
+- The ReSpeaker I²S HAT and MAX98357A I²S amp from the original plan are not
+  used: the Nano has no I²S driver support for them.
 
 ## Project structure
 
