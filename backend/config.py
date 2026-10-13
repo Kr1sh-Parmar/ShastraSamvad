@@ -32,7 +32,7 @@ LLM_KEEP_ALIVE = "30m"
 LLM_USE_OLLAMA = True
 LLM_MODEL_PATH = ROOT / "models" / "phi4-mini-q4.gguf"
 # 0 = pure CPU. Jetson Nano 4GB can offload some layers to its CUDA cores by
-# raising this; RK3588 does not use this module at all (see llm.py).
+# raising this — measure on-device before committing to a layer count, since GPU VRAM is shared with system RAM on the Nano.
 LLM_GPU_LAYERS = 0
 LLM_CONTEXT_SIZE = 2048
 WHISPER_MODEL = "base"          # base.en on device
@@ -40,7 +40,7 @@ WHISPER_COMPUTE = "int8"        # CPU
 # faster-whisper is the dev/demo path (pip install, no separate build step).
 # whisper.cpp base.en on CPU is the architecture doc's actual STT engine for
 # the device — a plain C++ binary with no Python ML stack to cross-compile for
-# Jetson Nano or RK3588. STT_USE_WHISPER_CPP switches stt.py to it; False
+# the Jetson Nano. STT_USE_WHISPER_CPP switches stt.py to it; False
 # keeps faster-whisper unchanged for laptop development.
 STT_USE_WHISPER_CPP = False
 WHISPER_CPP_MODEL_PATH = ROOT / "models" / "ggml-base.en.bin"
@@ -164,8 +164,8 @@ CORS_ORIGINS = ["http://localhost:3001", "http://127.0.0.1:3001",
                 "http://localhost:3000", "http://127.0.0.1:3000"]
 
 # --- embedded deployment ---
-# Target boards: Jetson Nano (4GB) and RK3588 (4-8GB). Both run every model
-# in this file's --- models --- section at once, for the whole life of the
+# Target board: NVIDIA Jetson Nano 4GB (B01). Every model
+# in this file's --- models --- section runs at once, for the whole life of the
 # process — there is no request-scoped loading on a kiosk with one user.
 #
 # Quantization: LLM_MODEL_PATH expects a Q4_K_M GGUF (~2.0GB for phi4-mini's
@@ -191,13 +191,7 @@ CORS_ORIGINS = ["http://localhost:3001", "http://127.0.0.1:3001",
 # RAM on this board, so it still counts against the 4GB above) for tokens/sec
 # — 0 is the safe CPU-only default until that tradeoff is measured on-device.
 #
-# RK3588: none of the llama.cpp machinery above runs at all. Its NPU is
-# driven by rkllm, which takes its own converted .rkllm model file, not a
-# GGUF — llm.py's LLM_USE_OLLAMA=False path (llama.cpp) is the Jetson Nano /
-# generic-Linux answer; an RK3588 build replaces that module's llama.cpp
-# branch with an rkllm-backed one instead of pointing LLM_MODEL_PATH at it.
-#
-# EMBEDDED_MODE is the one flag to set when bringing up a board: it forces
+# EMBEDDED_MODE is the one flag to set when bringing up the Nano: it forces
 # every individual backend flag above to its embedded value, so a deployment
 # script doesn't have to know or repeat that LLM_USE_OLLAMA, STT_USE_WHISPER_CPP
 # and VAD_USE_SILERO all need to flip together. Leave it False for laptop

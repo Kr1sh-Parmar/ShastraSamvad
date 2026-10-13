@@ -82,7 +82,7 @@ The controller that decides *what kind of turn* this is and routes accordingly.
 
 ### 4.6 Local LLM
 - **Primary:** `Qwen3-4B` (toggleable reasoning mode — good for Shastrarth) or `Phi-4-mini` (strongest tiny reasoner). `Gemma 3 4B` as alternative.
-- **Runtime:** `llama.cpp` (Q4 quant) on CPU on device; `rkllm` NPU as optional acceleration.
+- **Runtime:** `llama.cpp` (Q4 quant) on CPU on Jetson Nano; CUDA offload via LLM_GPU_LAYERS for acceleration.
 - **Constraints:** answer-length cap, must reference provided verses, concise reasoning scratchpad.
 
 ### 4.7 Citation Verifier ("no verse, no answer")
@@ -140,7 +140,7 @@ The rest of the answer plays continuously as it generates — the user is never 
 | STT | whisper.cpp `base.en` | CPU | English only |
 | VAD | Silero / WebRTC | CPU | Endpointing + barge-in |
 | Embeddings | bge-small-en-v1.5 / MiniLM | CPU | For RAG |
-| LLM | Qwen3-4B / Phi-4-mini / Gemma 3 4B (Q4) | llama.cpp (CPU) / rkllm (NPU) | Reasoning-capable |
+| LLM | Phi-4-mini (Q4_K_M GGUF) | llama.cpp (CPU / CUDA on Jetson Nano) | Reasoning-capable |
 | TTS | Piper | CPU | Streaming |
 
 ---

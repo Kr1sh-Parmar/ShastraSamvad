@@ -196,8 +196,8 @@ Get steps 1–4 solid first; that is the whole system in text form. Everything a
 
 ## 11. Laptop → device parity checklist
 
-When you move to the RK3588 board, only these change:
-- Ollama → `llama.cpp` (or `rkllm`) with the same 4B model quantized to Q4.
+When you move to the Jetson Nano 4GB, only these change:
+- Ollama → `llama.cpp` with the same 4B model quantized to Q4.
 - faster-whisper → `whisper.cpp` `base.en`.
 - Browser TTS → Piper (if you used the browser shortcut).
 - React web page → the same front-end served locally to the touchscreen (or a lightweight kiosk UI).

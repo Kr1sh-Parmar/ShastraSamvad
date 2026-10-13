@@ -189,12 +189,39 @@ el.chapterSel.addEventListener("change", () => { chapter = el.chapterSel.value; 
 el.modeSel.addEventListener("change", () => { mode = el.modeSel.value; });
 
 // --- websocket, with the same reconnect-on-its-own behaviour as page.jsx ---
+// A kiosk has no user to notice a dead tab and reload it, so connect() checks
+// the backend is actually up (GET /health) before ever opening the socket —
+// a bare `new WebSocket(...)` against a backend that's mid-restart just opens
+// and immediately closes, and the naive retry-on-close loop that follows was
+// what produced the constant reconnect churn seen on a slow-to-start backend.
+let pingInterval = null;
+
 function connect() {
+  fetch(`${BACKEND_HTTP}/health`)
+    .then((r) => { if (!r.ok) throw new Error("unhealthy"); return openSocket(); })
+    .catch(() => {
+      const wait = Math.min(1000 * 2 ** wsAttempt++, 10000);
+      setStatus(`backend unreachable — retrying in ${Math.round(wait / 1000)}s…`);
+      setTimeout(connect, wait);
+    });
+}
+
+function openSocket() {
   const sock = new WebSocket(BACKEND_WS);
   ws = sock;
-  sock.onopen = () => { wsAttempt = 0; setStatus("ready"); };
+  sock.onopen = () => {
+    wsAttempt = 0;
+    setStatus("ready");
+    clearInterval(pingInterval);
+    // A dead-but-not-yet-closed socket looks open to the browser; a periodic
+    // ping is what actually proves the backend is still there to answer.
+    pingInterval = setInterval(() => {
+      if (sock.readyState === WebSocket.OPEN) sock.send(JSON.stringify({ type: "ping" }));
+    }, 20000);
+  };
   sock.onmessage = (e) => handle(JSON.parse(e.data));
   sock.onclose = () => {
+    clearInterval(pingInterval);
     busy = false;
     render();
     const wait = Math.min(1000 * 2 ** wsAttempt++, 10000);
@@ -245,6 +272,8 @@ function handle(msg) {
       setStatus("ready");
       updateComposer();
       break;
+    case "pong":
+      break; // keepalive reply — arriving at all is the point, nothing to do
     case "interrupted":
       busy = false;
       setStatus("interrupted — go ahead");
@@ -385,7 +414,13 @@ el.interruptBtn.addEventListener("click", interrupt);
 // --- speech in: push-to-talk via MediaRecorder, posts to /stt -------------
 let recorder = null;
 el.recBtn.addEventListener("click", async () => {
-  if (recording) { recorder?.stop(); recording = false; el.recBtn.textContent = "🎙 speak"; return; }
+  if (recording) {
+    recorder?.stop();
+    recording = false;
+    el.recBtn.textContent = "🎙 speak";
+    el.recBtn.classList.remove("rec");
+    return;
+  }
   stopSpeaking();
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   const rec = new MediaRecorder(stream);
@@ -394,12 +429,18 @@ el.recBtn.addEventListener("click", async () => {
   rec.onstop = async () => {
     stream.getTracks().forEach((t) => t.stop());
     setStatus("transcribing…");
-    const form = new FormData();
-    form.append("audio", new Blob(parts, { type: "audio/webm" }), "turn.webm");
-    const r = await fetch(`${BACKEND_HTTP}/stt`, { method: "POST", body: form });
-    const { text } = await r.json();
-    setStatus("ready");
-    if (text && text.trim()) ask(text.trim());
+    try {
+      const form = new FormData();
+      form.append("audio", new Blob(parts, { type: "audio/webm" }), "turn.webm");
+      const r = await fetch(`${BACKEND_HTTP}/stt`, { method: "POST", body: form });
+      if (!r.ok) throw new Error(`stt ${r.status}`);
+      const { text } = await r.json();
+      setStatus("ready");
+      if (text && text.trim()) ask(text.trim());
+    } catch (err) {
+      console.error(err);
+      setStatus("transcription failed — try again");
+    }
   };
   recorder = rec;
   rec.start();
