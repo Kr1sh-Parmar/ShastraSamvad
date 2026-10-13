@@ -10,8 +10,9 @@ only the shells differ (Ollama→llama.cpp, faster-whisper→whisper.cpp, browse
 
 ```bash
 # 1. one-time: dependencies
+python -m venv venv
+.\venv\Scripts\Activate
 pip install -r requirements.txt
-
 # 2. one-time: LLM
 #    install Ollama from https://ollama.com/download, then:
 ollama pull phi4-mini
