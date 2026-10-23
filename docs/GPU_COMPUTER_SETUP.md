@@ -1,7 +1,7 @@
 # Running Shastra Samvad on the College GPU Computer
 
 First-run guide for the laptop/dev path (Ollama, faster-whisper, Piper). This
-is **not** the Jetson Nano build: leave `EMBEDDED_MODE = False` in
+is **not** the Jetson Orin Nano build: leave `EMBEDDED_MODE = False` in
 `backend/config.py`.
 
 Commands are for Windows PowerShell. Linux differences are noted where they
@@ -155,7 +155,7 @@ text is clearly the slow step.
 ## What this machine can and cannot tell you
 
 Numbers measured here describe **this computer**. They do not predict the
-Jetson Nano's latency or memory use, and the Nano paths (llama-cpp-python,
+Jetson Orin Nano's latency or memory use, and its paths (llama-cpp-python,
 whisper.cpp, Silero VAD) are not exercised at all. Label every measurement
 with the machine and GPU it came from. See
 [TESTING_AND_MEASUREMENT.md](TESTING_AND_MEASUREMENT.md).

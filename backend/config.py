@@ -31,8 +31,8 @@ LLM_KEEP_ALIVE = "30m"
 # board can be brought up before the Ollama path is retired.
 LLM_USE_OLLAMA = True
 LLM_MODEL_PATH = ROOT / "models" / "phi4-mini-q4.gguf"
-# 0 = pure CPU. Jetson Nano 4GB can offload some layers to its CUDA cores by
-# raising this — measure on-device before committing to a layer count, since GPU VRAM is shared with system RAM on the Nano.
+# 0 = pure CPU. The Jetson Orin Nano can offload layers to its Ampere GPU by
+# raising this — measure on-device before committing to a layer count, since GPU memory is shared with system RAM on the Orin Nano.
 LLM_GPU_LAYERS = 0
 LLM_CONTEXT_SIZE = 2048
 WHISPER_MODEL = "base"          # base.en on device
@@ -40,7 +40,7 @@ WHISPER_COMPUTE = "int8"        # CPU
 # faster-whisper is the dev/demo path (pip install, no separate build step).
 # whisper.cpp base.en on CPU is the architecture doc's actual STT engine for
 # the device — a plain C++ binary with no Python ML stack to cross-compile for
-# the Jetson Nano. STT_USE_WHISPER_CPP switches stt.py to it; False
+# the Jetson Orin Nano. STT_USE_WHISPER_CPP switches stt.py to it; False
 # keeps faster-whisper unchanged for laptop development.
 STT_USE_WHISPER_CPP = False
 WHISPER_CPP_MODEL_PATH = ROOT / "models" / "ggml-base.en.bin"
@@ -68,7 +68,7 @@ VAD_MIN_SILENCE_MS = 700        # silence this long after speech = end of turn
 NLI_MODEL = "cross-encoder/nli-deberta-v3-small"
 # Keeps NLI_MODEL's ~400MB resident between turns by default — the same
 # tradeoff LLM_KEEP_ALIVE makes for the LLM, just smaller stakes here since
-# 400MB matters far more on a 4GB board than a laptop. True unloads it after
+# 400MB matters more on a shared-memory board than a laptop. True unloads it after
 # each check() pass and reloads on the next verified sentence: ~200ms paid
 # per NLI call instead of per idle gap, in exchange for 400MB freed the rest
 # of the time. See EMBEDDED_MODE below for where this is meant to flip on.
@@ -164,12 +164,12 @@ CORS_ORIGINS = ["http://localhost:3001", "http://127.0.0.1:3001",
                 "http://localhost:3000", "http://127.0.0.1:3000"]
 
 # --- embedded deployment ---
-# Target board: NVIDIA Jetson Nano 4GB (B01). Every model
+# Target board: NVIDIA Jetson Orin Nano (8GB Developer Kit). Every model
 # in this file's --- models --- section runs at once, for the whole life of the
 # process — there is no request-scoped loading on a kiosk with one user.
 #
 # Quantization: LLM_MODEL_PATH expects a Q4_K_M GGUF (~2.0GB for phi4-mini's
-# ~3.8B params) — the standard "fits in 4GB with room for everything else"
+# ~3.8B params) — the standard "fits in 8GB with room for everything else"
 # quant, not the smaller Q4_0/Q3 variants, which measurably degrade citation
 # accuracy on a model this size already picked for being small. Pull it with
 # llama.cpp's own convert+quantize tooling, or a pre-quantized GGUF from
@@ -184,14 +184,14 @@ CORS_ORIGINS = ["http://localhost:3001", "http://127.0.0.1:3001",
 #   Piper TTS                            ~60 MB
 #   FAISS index + corpus                 ~50 MB
 #   --------------------------------------------
-#   Total                                ~2.8 GB   -> ~1.2 GB left for OS/buffers on 4GB
+#   Total                                ~2.8 GB   -> ~5 GB left for OS/buffers on 8GB
 #
-# Jetson Nano: LLM_GPU_LAYERS > 0 offloads that many transformer layers to the
-# Nano's 128-core Maxwell GPU via CUDA, trading GPU VRAM (shared with system
-# RAM on this board, so it still counts against the 4GB above) for tokens/sec
+# Jetson Orin Nano: LLM_GPU_LAYERS > 0 offloads that many transformer layers to
+# the 1024-core Ampere GPU via CUDA, trading GPU memory (shared with system
+# RAM on this board, so it still counts against the 8GB above) for tokens/sec
 # — 0 is the safe CPU-only default until that tradeoff is measured on-device.
 #
-# EMBEDDED_MODE is the one flag to set when bringing up the Nano: it forces
+# EMBEDDED_MODE is the one flag to set when bringing up the Orin Nano: it forces
 # every individual backend flag above to its embedded value, so a deployment
 # script doesn't have to know or repeat that LLM_USE_OLLAMA, STT_USE_WHISPER_CPP
 # and VAD_USE_SILERO all need to flip together. Leave it False for laptop

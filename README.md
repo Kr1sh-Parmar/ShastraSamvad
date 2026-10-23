@@ -116,7 +116,9 @@ themselves — see `scripts/00_fetch_mahabharata.py` and
 | Target | LLM | STT | VAD | Status |
 |---|---|---|---|---|
 | Laptop (dev/demo) | Ollama (`phi4-mini`) | faster-whisper | browser RMS (client-side) | working |
-| Jetson Nano 4GB | llama-cpp-python, GGUF, `LLM_GPU_LAYERS` for CUDA offload | whisper.cpp | Silero VAD (`backend/vad.py`) | backends implemented, not yet run on real hardware |
+| Jetson Orin Nano (8GB Developer Kit) | llama-cpp-python, GGUF, `LLM_GPU_LAYERS` for CUDA offload | whisper.cpp | Silero VAD (`backend/vad.py`) | backends implemented, not yet run on real hardware |
+
+The Jetson Orin Nano is the only embedded target for this project.
 
 Memory budget for an embedded build with every model resident at once
 (from `backend/config.py`'s `--- embedded deployment ---` section):
@@ -129,39 +131,40 @@ Memory budget for an embedded build with every model resident at once
 | Whisper (base.en) | ~150 MB |
 | Piper TTS | ~60 MB |
 | FAISS index + corpus | ~50 MB |
-| **Total** | **~2.8 GB** — leaves ~1.2 GB for OS/buffers on a 4GB board |
+| **Total** | **~2.8 GB** — leaves about 5 GB for OS/buffers on the 8GB Orin Nano |
 
 ## Hardware bill of materials
 
-The Jetson Nano 4GB is college-provided and not counted against the budget
-below. Prices are AI-approximated (India, not independently verified) —
-confirm current retail pricing before purchase.
+The Jetson Orin Nano Developer Kit is college-provided and not counted
+against the budget below. The kit's own 19 V power supply and its heatsink
+and fan are assumed to come with it. Prices are AI-approximated (India, not
+independently verified) — confirm current retail pricing before purchase.
 
 | # | Component | Choice | Approx. ₹ (India) |
 |---|-----------|--------|-------------------|
-| 1 | Boot storage | 64 GB microSD UHS-I A2 (the Nano B01 has no M.2 storage slot, so no NVMe) | 800 |
-| 2 | Display | 5" or 7" capacitive touchscreen (HDMI + USB touch; uses 1 HDMI + 1 USB-A) | 3,500 (5") |
-| 3 | Microphone + audio codec | Waveshare USB Audio Codec (driver-free, tested on Jetson Nano) or a USB condenser mic | 1,500 |
+| 1 | Boot storage | 64 GB microSD UHS-I A2 (an M.2 NVMe SSD is optional and loads models faster) | 800 |
+| 2 | Display | 7" Waveshare capacitive touchscreen, 1024×600 (HDMI video + USB touch) | 4,500 |
+| 3 | Microphone + audio codec | Waveshare USB Audio Codec (USB audio class, no driver needed) or a USB condenser mic | 1,500 |
 | 4 | Audio output | 3 W self-powered speaker via the codec's 3.5 mm out, or a passive speaker behind a PAM8403 amp board | 600 |
-| 5 | Power (portable) | 20,000 mAh power bank with 5V/4A output + USB-A to 5.5 mm barrel cable (or a bank with a 5V DC barrel output), plus a 5V/4A wall adapter as backup | 3,000 |
-| 6 | Cooling | Heatsink + 40 mm 5V PWM fan on the J15 header (required: the Nano throttles under LLM load without it) | 800 |
-| 7 | Cables | 30 cm HDMI, USB-A to micro-USB (touch), USB-A to barrel (power), J48 jumper | 700 |
-| 8 | Enclosure | 3D-printed or laser-cut acrylic: fan vents, barrel jack cutout, HDMI + 2x USB routing, mic slot, speaker grille | 1,500 |
-| | **Subtotal** | | **12,400** |
+| 5 | Power (portable, optional) | Power bank with a 19 V DC barrel output rated 45 W or more; verify against the kit's datasheet. Use the kit's wall supply otherwise | 3,500 |
+| 6 | Cooling spare | Spare 5V PWM fan (the kit ships with a heatsink and fan) | 500 |
+| 7 | Cables | DisplayPort-to-HDMI adapter, 30 cm HDMI, USB-A to micro-USB (touch), Ethernet cable | 1,200 |
+| 8 | Enclosure | 3D-printed or laser-cut acrylic: fan vents, barrel jack cutout, video + 2x USB routing, mic slot, speaker grille | 1,500 |
+| | **Subtotal** | | **14,100** |
 | | Contingency | connectors, breakage | 2,200 |
-| | **Total** | | **14,600** |
+| | **Total** | | **16,300** |
 
 Power and ports:
 
-- The Nano has no USB-C, so USB-C PD banks do not work. Power comes in
-  through the 5.5 mm barrel jack, which needs the **J48 jumper** fitted to
-  enable it.
-- Peak draw is about 12–14 W (board ~10 W, peripherals ~3 W); a 5V/4A
-  supply gives 20 W of headroom.
-- The Nano B01's four USB 3.0 Type-A ports: 1 touchscreen, 2 USB audio
-  codec, 3 and 4 free (WiFi dongle for setup, or future use).
+- The Orin Nano Developer Kit is powered through its DC barrel jack from the
+  kit's 19 V supply. A 5V/4A adapter or a USB-C PD bank is not a substitute;
+  check the datasheet before connecting anything else.
+- Video leaves the kit on **DisplayPort**, not HDMI, so the HDMI touchscreen
+  needs a DisplayPort-to-HDMI adapter.
+- The kit has four USB-A ports: 1 touchscreen (touch), 2 USB audio codec, 3
+  and 4 free (keyboard, or a spare device).
 - The ReSpeaker I²S HAT and MAX98357A I²S amp from the original plan are not
-  used: the Nano has no I²S driver support for them.
+  used. The USB audio codec replaces both.
 
 ## Project structure
 
@@ -336,8 +339,8 @@ their embedded-appropriate values in one place, at the bottom of the file.
   raw-PCM decode path.
 - **No end-to-end testing on actual embedded hardware yet.** The
   llama-cpp-python, whisper.cpp, and Silero VAD backends are implemented and
-  gated behind config flags, but have not been run on a Jetson Nano or any
-  other board — memory and latency numbers in this README and in
+  gated behind config flags, but have not been run on the Jetson Orin Nano
+  or any other board — memory and latency numbers in this README and in
   `config.py` are measured/estimated, not device-verified.
 
 ## Team

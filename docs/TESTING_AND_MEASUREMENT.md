@@ -76,8 +76,8 @@ What these numbers can and cannot claim:
 - **Can show:** the verifier withholds unsupported sentences, the four modes
   route and retrieve differently, and sentence-by-sentence streaming reaches
   the speaker before the answer is finished.
-- **Cannot show:** the Jetson Nano's latency, memory fit, or the 5 to 10
-  second target. The Nano paths (llama-cpp-python, whisper.cpp, Silero VAD)
+- **Cannot show:** the Jetson Orin Nano's latency, memory fit, or the 5 to 10
+  second target. Its paths (llama-cpp-python, whisper.cpp, Silero VAD)
   are not run on this machine. Label every figure with the hardware that
   produced it.
 
@@ -88,4 +88,4 @@ These do not exist yet and need adding if they are to be claimed:
 - a latency script that logs time to first sentence for every turn
 - a labeled question set scoring citation precision and recall, beyond the
   unit tests
-- anything run on the Jetson Nano
+- anything run on the Jetson Orin Nano

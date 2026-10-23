@@ -50,7 +50,7 @@ def contradicts(premises: str | list[str], hypothesis: str) -> float:
     scores = m.predict([(p, hypothesis) for p in premises], apply_softmax=True)
     result = max(float(row[idx]) for row in scores)
     # NLI_MODEL_LAZY: this ~400MB model is otherwise resident for the whole
-    # process, like embed.py's embedder. On a 4GB embedded board that matters
+    # process, like embed.py's embedder. On a shared-memory embedded board that matters
     # enough to trade for latency — unloading here frees it between turns, at
     # the cost of ~200ms to reload on the next contradicts() call. Off by
     # default: on a laptop or server with room to spare, the tradeoff is pure

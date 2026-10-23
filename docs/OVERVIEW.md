@@ -78,14 +78,16 @@ README), so check its terms before any redistribution.
 
 ## Target hardware
 
-**NVIDIA Jetson Nano 4GB**, college-provided and not counted against the
-budget. Around it: a 5" or 7" HDMI/USB capacitive touchscreen, a USB audio
-codec for microphone and audio out, a small powered speaker, a 5V/4A power
-bank into the barrel jack, and a heatsink with a PWM fan. The itemized parts
-list, estimated prices and power notes are in the README. Planned spend is
-about ₹14,600 against a ₹30,000 cap (prices are AI-approximated).
+**NVIDIA Jetson Orin Nano (8GB Developer Kit)**, college-provided and not
+counted against the budget. It is the only target board for this project.
+Around it: a 7" Waveshare HDMI/USB capacitive touchscreen (driven through a
+DisplayPort-to-HDMI adapter), a USB audio codec for microphone and audio out,
+and a small powered speaker. The kit supplies its own 19 V power adapter and a
+heatsink with fan. The itemized parts list, estimated prices and power notes
+are in the README. Planned spend is about ₹16,300 against a ₹30,000 cap
+(prices are AI-approximated).
 
-All models run resident at once, about 2.8 GB of the Nano's 4 GB (see the
+All models run resident at once, about 2.8 GB of the Orin Nano's 8 GB (see the
 memory table in the README).
 
 ## Goals
@@ -94,7 +96,7 @@ memory table in the README).
 2. Four modes: Teach, Doubt, Debate, Counsel.
 3. Grounded answers: every claim traceable to a cited verse.
 4. A natural 5–10 second response, with first spoken words in roughly 4–6
-   seconds. This is a design target; it has not been measured on the Nano.
+   seconds. This is a design target; it has not been measured on the Orin Nano.
 5. A working, portable product within budget.
 6. Defensible intellectual property around the novel methods.
 
@@ -132,7 +134,7 @@ and Silero VAD paths, and the `/mic` endpoint.
 
 - The `/mic` endpoint passes raw PCM to a decoder that expects an encoded
   container, so server-side barge-in will fail until that is fixed.
-- No latency or memory measurement on the Jetson Nano yet.
+- No latency or memory measurement on the Jetson Orin Nano yet.
 - The FAISS index is not in the repo and must be built with `scripts/00` to
   `04`.
 - No formal citation-accuracy benchmark beyond the unit tests.

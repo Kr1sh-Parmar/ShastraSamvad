@@ -4,9 +4,9 @@ Setup for the first test: the **college GPU computer** is the brain, the
 **Jetson Orin Nano** is the kiosk (screen, touch, microphone, speaker), and
 the **7" Waveshare LCD** is the Jetson's display.
 
-> Confirm the exact Jetson model from the label on the board. This document
-> assumes an **Orin Nano Developer Kit**. The README and `config.py` still say
-> "Jetson Nano 4GB (B01)" and a 5V/4A supply, which do not apply to an Orin.
+> The target board is the **Jetson Orin Nano Developer Kit** and nothing
+> else. Port details below come from that kit's documentation; check them
+> against your board's labels before wiring.
 
 ## The picture
 

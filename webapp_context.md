@@ -196,7 +196,7 @@ Get steps 1–4 solid first; that is the whole system in text form. Everything a
 
 ## 11. Laptop → device parity checklist
 
-When you move to the Jetson Nano 4GB, only these change:
+When you move to the Jetson Orin Nano, only these change:
 - Ollama → `llama.cpp` with the same 4B model quantized to Q4.
 - faster-whisper → `whisper.cpp` `base.en`.
 - Browser TTS → Piper (if you used the browser shortcut).
