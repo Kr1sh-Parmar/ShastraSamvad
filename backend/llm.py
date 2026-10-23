@@ -2,8 +2,8 @@
 
 Ollama (JSON-lines HTTP stream, no framework) is the dev/demo path — it needs
 a daemon, which is fine on a laptop and not available on embedded hardware.
-llama-cpp-python loads a GGUF file in-process instead, for the Jetson Nano
-4GB (CPU, or CUDA via LLM_GPU_LAYERS) with no Ollama install.
+llama-cpp-python loads a GGUF file in-process instead, for the Jetson Orin
+Nano (CPU, or CUDA via LLM_GPU_LAYERS) with no Ollama install.
 """
 import asyncio
 import json

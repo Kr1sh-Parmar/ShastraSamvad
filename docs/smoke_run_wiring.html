@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shastra Samvad Smoke Run Wiring</title>
+<style>
+  :root{
+    --bg:#faf8f4; --surface:#ffffff; --border:#e4ddd0;
+    --fg:#2a241c; --fg-dim:#71675a;
+    --accent:#a6572c; --accent-soft:#f1e3d6;
+    --font-display:'Fraunces',Georgia,serif;
+    --font-body:'Source Sans 3',system-ui,sans-serif;
+    --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#1b1812; --surface:#242019; --border:#3a342a;
+      --fg:#efe9df; --fg-dim:#a89d8c;
+      --accent:#e08a52; --accent-soft:#3a2a1c;
+      color-scheme: dark;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--fg); font-family:var(--font-body); padding-inline:20px; padding-block:40px; line-height:1.5}
+  .wrap{max-width:900px; margin:0 auto; display:flex; flex-direction:column; gap:34px}
+  h1{font-family:var(--font-display); font-size:clamp(1.6rem,4vw,2.3rem); font-weight:600; margin:0; text-wrap:balance}
+  h2{font-family:var(--font-display); font-size:1.15rem; font-weight:600; margin:0}
+  .eyebrow{font-family:var(--font-mono); font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; color:var(--accent)}
+  .subtitle{color:var(--fg-dim); margin-top:6px; max-width:65ch}
+  section{display:flex; flex-direction:column; gap:12px; min-width:0}
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; min-width:0}
+  .scroll{overflow-x:auto}
+  pre.mermaid{margin:0; min-width:640px}
+  table{width:100%; border-collapse:collapse; font-size:.88rem}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:top}
+  th{font-family:var(--font-mono); font-size:.7rem; letter-spacing:.06em; text-transform:uppercase; color:var(--fg-dim)}
+  .warn{border-left:3px solid var(--accent); background:var(--accent-soft); padding:12px 16px; border-radius:6px; font-size:.92rem}
+  ol{margin:0; padding-left:1.2rem; display:flex; flex-direction:column; gap:8px}
+  code{font-family:var(--font-mono); font-size:.82rem; background:var(--accent-soft); padding:1px 5px; border-radius:4px}
+  footer{color:var(--fg-dim); font-size:.8rem; border-top:1px solid var(--border); padding-top:16px}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <div class="eyebrow">Shastra Samvad &middot; Smoke run</div>
+    <h1>What connects to what</h1>
+    <p class="subtitle">The college GPU computer is the brain. The Jetson Orin Nano is the kiosk with the screen, touch, microphone and speaker. The 7&quot; Waveshare LCD is the Jetson&rsquo;s display.</p>
+  </div>
+
+  <div class="warn">The target board is the <strong>Jetson Orin Nano Developer Kit</strong> and nothing else. It outputs video on <strong>DisplayPort, not HDMI</strong> (so the HDMI LCD needs a DisplayPort-to-HDMI adapter) and runs from the <strong>kit&rsquo;s own 19 V power supply</strong>, not a 5V/4A adapter. Check your board&rsquo;s labels and datasheet before wiring or powering it.</div>
+
+  <section>
+    <h2>Physical connections</h2>
+    <div class="card scroll">
+<pre class="mermaid">
+flowchart LR
+  subgraph PC["College GPU computer - the brain"]
+    OLL["Ollama + phi4-mini on GPU"]
+    BE["FastAPI backend :8000"]
+    DATA[("FAISS index + corpus")]
+    BE --- OLL
+    BE --- DATA
+  end
+  subgraph JET["Jetson Orin Nano - the kiosk"]
+    CH["Chromium --kiosk<br/>kiosk.html"]
+  end
+  LCD["7in Waveshare LCD<br/>1024x600, HDMI + USB touch"]
+  CODEC["USB audio codec"]
+  MIC["Microphone"]
+  AMP["PAM8403 amp"]
+  SPK["3W 8ohm speaker"]
+  PSU["Power supply from the kit"]
+  FAN["40mm PWM fan"]
+
+  PC <-->|"Ethernet or same LAN<br/>HTTP + WebSocket :8000"| JET
+  JET -->|"DisplayPort, DP-to-HDMI adapter, HDMI cable"| LCD
+  LCD -->|"USB-A to micro-USB: touch"| JET
+  JET <-->|"USB-A"| CODEC
+  MIC --> CODEC
+  CODEC -->|"3.5mm line out"| AMP
+  AMP --> SPK
+  PSU --> JET
+  FAN --> JET
+</pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>One question, across both machines</h2>
+    <div class="card scroll">
+<pre class="mermaid">
+sequenceDiagram
+  participant S as Student
+  participant K as Jetson kiosk.html
+  participant B as Backend on college computer
+  participant O as Ollama on GPU
+  S->>K: hold talk, speak
+  K->>B: POST /stt with audio
+  B-->>K: transcript
+  K->>B: WS /chat ask
+  B->>B: pick mode, retrieve verses
+  B-->>K: mode and verses
+  B->>O: prompt with verses
+  O-->>B: tokens
+  B->>B: verify each sentence
+  B-->>K: sentence and audio address
+  K->>B: GET /tts/ID
+  B-->>K: WAV audio
+  K-->>S: speaker plays, LCD shows text and citations
+</pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>Connection table</h2>
+    <div class="card scroll">
+      <table>
+        <thead><tr><th>From</th><th>To</th><th>Link</th><th>Carries</th></tr></thead>
+        <tbody>
+          <tr><td>Jetson DisplayPort</td><td>LCD HDMI input</td><td>DP-to-HDMI adapter + HDMI cable</td><td>video</td></tr>
+          <tr><td>Jetson USB-A</td><td>LCD micro-USB</td><td>USB-A to micro-USB</td><td>touch (some models also take power here)</td></tr>
+          <tr><td>Jetson USB-A</td><td>USB audio codec</td><td>USB</td><td>mic in, audio out</td></tr>
+          <tr><td>Codec 3.5 mm out</td><td>PAM8403 amp</td><td>3.5 mm to wire</td><td>line-level audio</td></tr>
+          <tr><td>PAM8403 amp</td><td>3 W 8 &Omega; speaker</td><td>speaker wire</td><td>sound</td></tr>
+          <tr><td>Jetson DC jack</td><td>wall adapter</td><td>the kit&rsquo;s own supply</td><td>power</td></tr>
+          <tr><td>Jetson fan header</td><td>40 mm PWM fan</td><td>fan connector</td><td>cooling</td></tr>
+          <tr><td>Jetson Ethernet</td><td>college computer or switch</td><td>Ethernet</td><td>all backend traffic</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Bring-up order</h2>
+    <div class="card">
+      <ol>
+        <li><strong>Computer alone.</strong> Backend and Next.js page on the college computer. Nothing else until this works.</li>
+        <li><strong>Jetson and LCD alone.</strong> Picture at the right size, touch moves the pointer.</li>
+        <li><strong>Audio on the Jetson.</strong> Record and play a clip through the codec and speaker.</li>
+        <li><strong>Network.</strong> If the college network isolates devices, use a direct Ethernet cable with fixed addresses, for example 192.168.50.1 and 192.168.50.2. Ping the computer from the Jetson.</li>
+        <li><strong>Open the backend.</strong> Start it with <code>--host 0.0.0.0 --port 8000</code> and allow inbound TCP 8000 in the firewall.</li>
+        <li><strong>Point the kiosk at the computer.</strong> Set <code>BACKEND_HTTP</code> on line 135 of <code>frontend/kiosk.html</code> to the computer&rsquo;s address, and add the page&rsquo;s origin to <code>CORS_ORIGINS</code> in <code>backend/config.py</code>.</li>
+        <li><strong>Check.</strong> Open <code>http://&lt;computer-ip&gt;:8000/health</code> from the Jetson. All true except <code>vad</code>.</li>
+        <li><strong>Run.</strong> <code>chromium-browser --kiosk frontend/kiosk.html</code>. Typed question first, then spoken.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2>What this test proves</h2>
+    <div class="card">
+      <p><strong>Proves:</strong> screen, touch, microphone, speaker, network and the whole spoken question-and-answer loop work together.</p>
+      <p><strong>Does not prove:</strong> anything about the Jetson running the AI. It loads no model here, so the llama-cpp-python, whisper.cpp and Silero VAD paths stay untested, and the Jetson&rsquo;s own latency and memory are still unknown. That is the next stage, with everything on the Jetson, measured and labeled separately.</p>
+    </div>
+  </section>
+
+  <footer>Full detail: <code>docs/SMOKE_RUN_WIRING.md</code> &middot; <code>docs/GPU_COMPUTER_SETUP.md</code> &middot; <code>docs/TROUBLESHOOTING.md</code></footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default'
+  });
+</script>
+</body>
+</html>
